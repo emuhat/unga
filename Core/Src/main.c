@@ -88,9 +88,7 @@ int main(void)
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
 
-  int x = 1;
-
-  int delay = 750;
+  int delay = 250;
 
   /* USER CODE END 2 */
 
@@ -98,21 +96,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-
 	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
-
-//	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_SET);
-
 	  HAL_Delay(delay);
-
 	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
-
 	  HAL_Delay(delay);
 
-//	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET);
+	  /* USER CODE END WHILE */
 
-	  x++;
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
