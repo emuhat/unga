@@ -1,0 +1,19 @@
+# Build dirs
+Debug/
+Release/
+
+# IDE metadata
+.metadata/
+*.launch
+*.mxproject
+
+# Build artifacts
+*.o
+*.elf
+*.map
+*.bin
+*.hex
+*.d
+
+# Eclipse user-specific
+.settings/language.settings.xml
