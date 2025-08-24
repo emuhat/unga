@@ -91,7 +91,7 @@ int main(void)
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
-  int delay = 250;
+  int delay = 500;
 
   /* USER CODE END 2 */
 
