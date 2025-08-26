@@ -97,7 +97,38 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
-  int delay = 800;
+  HAL_Delay(500);	// not sure about this...
+  ARGB_Init();
+  HAL_Delay(500);	// not sure about this...
+//
+//  uint32_t the_clock = HAL_RCC_GetSysClockFreq();
+//
+//
+  ARGB_Clear(); // Clear stirp
+
+    while (!ARGB_Show());
+    HAL_Delay(500);	// not sure about this..
+
+    ARGB_FillRGB(0, 255, 255);
+    while (!ARGB_Show());
+    HAL_Delay(500);	// not sure about this..
+
+//
+//  ARGB_Clear(); // Clear stirp
+//  while (!ARGB_Show());
+
+
+//  ARGB_Clear(); // Clear stirp
+//  while (!ARGB_Show());
+
+
+  int delay = 50;
+  int delay_inc = 50;
+  int delay_dir = 1;
+
+
+//  ARGB_FillRGB(0, 128, 0);
+//  while (!ARGB_Show());
 
   /* USER CODE END 2 */
 
@@ -109,6 +140,18 @@ int main(void)
 	  HAL_Delay(delay);
 	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
 	  HAL_Delay(delay);
+
+	  if (delay_dir) {
+		  delay += delay_inc;
+		  if (delay > 1000) {
+			  delay_dir = !delay_dir;
+		  }
+	  } else {
+		  delay -= delay_inc;
+		  if (delay < 40) {
+			  delay_dir = !delay_dir;
+		  }
+	  }
 
     /* USER CODE END WHILE */
 
@@ -181,8 +224,6 @@ static void MX_TIM1_Init(void)
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
-  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
 
   /* USER CODE BEGIN TIM1_Init 1 */
 
@@ -203,10 +244,6 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
-  {
-    Error_Handler();
-  }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
@@ -214,36 +251,9 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 500;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
-  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
-  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
-  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
-  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
-  sBreakDeadTimeConfig.DeadTime = 0;
-  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
-  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
-  sBreakDeadTimeConfig.BreakFilter = 0;
-  sBreakDeadTimeConfig.Break2State = TIM_BREAK2_DISABLE;
-  sBreakDeadTimeConfig.Break2Polarity = TIM_BREAK2POLARITY_HIGH;
-  sBreakDeadTimeConfig.Break2Filter = 0;
-  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
-  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
   /* USER CODE BEGIN TIM1_Init 2 */
 
   /* USER CODE END TIM1_Init 2 */
-  HAL_TIM_MspPostInit(&htim1);
 
 }
 
