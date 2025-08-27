@@ -109,9 +109,7 @@ int main(void)
     while (!ARGB_Show());
     HAL_Delay(500);	// not sure about this..
 
-    ARGB_FillRGB(0, 255, 255);
-    while (!ARGB_Show());
-    HAL_Delay(500);	// not sure about this..
+
 
 //
 //  ARGB_Clear(); // Clear stirp
@@ -130,12 +128,18 @@ int main(void)
 //  ARGB_FillRGB(0, 128, 0);
 //  while (!ARGB_Show());
 
+
+  int x = 0;
+  int rgb = 0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  delay = 100;
+
 	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
 	  HAL_Delay(delay);
 	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
@@ -152,6 +156,18 @@ int main(void)
 			  delay_dir = !delay_dir;
 		  }
 	  }
+
+	  //x = (x+10) % 256;
+	  x += 10;
+	  if (x > 255) {
+		  x = 0;
+
+		  rgb = (rgb + 1) % 3;
+	  }
+
+	    ARGB_FillRGB(rgb==0?x:0, rgb==1?x:0, rgb==2?x:0);
+	    while (!ARGB_Show());
+//	    HAL_Delay(500);	// not sure about this..
 
     /* USER CODE END WHILE */
 
