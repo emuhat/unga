@@ -138,11 +138,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  delay = 100;
+	  delay = 5;
 
-	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
-	  HAL_Delay(delay);
-	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
+//	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
+//	  HAL_Delay(delay);
+//	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
 	  HAL_Delay(delay);
 
 	  if (delay_dir) {
@@ -158,7 +158,7 @@ int main(void)
 	  }
 
 	  //x = (x+10) % 256;
-	  x += 32;
+	  x += 1;
 	  if (x > 255) {
 		  x = 0;
 
