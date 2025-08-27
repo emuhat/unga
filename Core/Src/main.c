@@ -158,14 +158,20 @@ int main(void)
 	  }
 
 	  //x = (x+10) % 256;
-	  x += 10;
+	  x += 32;
 	  if (x > 255) {
 		  x = 0;
 
-		  rgb = (rgb + 1) % 3;
+		  rgb = (rgb + 1) % 4;
 	  }
 
-	    ARGB_FillRGB(rgb==0?x:0, rgb==1?x:0, rgb==2?x:0);
+	  ARGB_Clear();
+	  	if(rgb == 3)
+	  		ARGB_FillWhite(x);
+	  	else
+	  		ARGB_FillRGB(rgb==0?x:0, rgb==1?x:0, rgb==2?x:0);
+
+
 	    while (!ARGB_Show());
 //	    HAL_Delay(500);	// not sure about this..
 
