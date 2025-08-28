@@ -59,10 +59,33 @@ static void MX_TIM2_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
+struct FooBar {
+  int x;
+  int rgb;
+};
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void update(struct FooBar* fb) {
+	  fb->x += 1;
+	  if (fb->x > 255) {
+		  fb->x = 0;
+
+		  fb->rgb = (fb->rgb + 1) % 4;
+	  }
+}
+
+void draw(int x, struct FooBar* fb) {
+  	if(fb->rgb == 3)
+  		ARGB_SetWhite(x, fb->x);
+  	else
+  		ARGB_SetRGB(x, fb->rgb==0?fb->x:0, fb->rgb==1?fb->x:0, fb->rgb==2?fb->x:0);
+
+
+}
 
 /* USER CODE END 0 */
 
@@ -133,8 +156,15 @@ int main(void)
 //  while (!ARGB_Show());
 
 
-  int x = 0;
-  int rgb = 0;
+  struct FooBar yeah0 = {0,0};
+  struct FooBar yeah1 = {128,1};
+  struct FooBar yeah2 = {200,2};
+
+  uint8_t buffer[4];
+  buffer[0] = 'A';
+  buffer[1] = 'B';
+  buffer[2] = 'C';
+  buffer[3] = 'D';
 
   /* USER CODE END 2 */
 
@@ -149,35 +179,40 @@ int main(void)
 //	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
 	  HAL_Delay(delay);
 
-	  if (delay_dir) {
-		  delay += delay_inc;
-		  if (delay > 1000) {
-			  delay_dir = !delay_dir;
-		  }
-	  } else {
-		  delay -= delay_inc;
-		  if (delay < 40) {
-			  delay_dir = !delay_dir;
-		  }
-	  }
+//	  if (delay_dir) {
+//		  delay += delay_inc;
+//		  if (delay > 1000) {
+//			  delay_dir = !delay_dir;
+//		  }
+//	  } else {
+//		  delay -= delay_inc;
+//		  if (delay < 40) {
+//			  delay_dir = !delay_dir;
+//		  }
+//	  }
 
-	  //x = (x+10) % 256;
-	  x += 1;
-	  if (x > 255) {
-		  x = 0;
-
-		  rgb = (rgb + 1) % 4;
-	  }
+	  update(&yeah0);
+	  update(&yeah1);
+	  update(&yeah2);
 
 	  ARGB_Clear();
-	  	if(rgb == 3)
-	  		ARGB_FillWhite(x);
-	  	else
-	  		ARGB_FillRGB(rgb==0?x:0, rgb==1?x:0, rgb==2?x:0);
+	  draw(0, &yeah0);
+	  draw(1, &yeah1);
+	  draw(2, &yeah2);
+	  while (!ARGB_Show());
+
+//	  	if(rgb == 3)
+//	  		ARGB_SetWhite(0, x);
+//	  	else
+//	  		ARGB_SetRGB(0, rgb==0?x:0, rgb==1?x:0, rgb==2?x:0);
 
 
-	    while (!ARGB_Show());
+
 //	    HAL_Delay(500);	// not sure about this..
+
+
+	    HAL_UART_Transmit(&huart1, buffer, 4, 0xFFFF);
+
 
     /* USER CODE END WHILE */
 
