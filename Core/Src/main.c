@@ -48,6 +48,8 @@ UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
+uint8_t inbuffer[4];
+int actually_light_stuff_up = 0;
 
 /* USER CODE END PV */
 
@@ -167,6 +169,9 @@ int main(void)
   buffer[2] = 'C';
   buffer[3] = 'D';
 
+
+  HAL_UART_Receive_DMA(&huart1, inbuffer, 4);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -197,9 +202,11 @@ int main(void)
 	  update(&yeah2);
 
 	  ARGB_Clear();
-	  draw(0, &yeah0);
-	  draw(1, &yeah1);
-	  draw(2, &yeah2);
+	  if (actually_light_stuff_up) {
+		  draw(0, &yeah0);
+		  draw(1, &yeah1);
+		  draw(2, &yeah2);
+	  }
 	  while (!ARGB_Show());
 
 //	  	if(rgb == 3)
@@ -476,6 +483,12 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+	  HAL_UART_Transmit(&huart1, inbuffer, 4, 0xFFFF);
+	  HAL_UART_Receive_DMA(&huart1, inbuffer, 4);
+	  actually_light_stuff_up = !actually_light_stuff_up;
+}
 
 /* USER CODE END 4 */
 
