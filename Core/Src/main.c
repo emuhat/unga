@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "ARGB.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -50,6 +51,96 @@ DMA_HandleTypeDef hdma_usart1_rx;
 /* USER CODE BEGIN PV */
 uint8_t inbuffer[4];
 int actually_light_stuff_up = 0;
+
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+
+const uint8_t PING_TYPE = 0;
+const uint8_t PONG_TYPE = 1;
+const uint8_t STRING_TYPE = 2;
+
+#define BUFFER_SIZE 512
+#define MAX_PACKET_SIZE 512
+
+// 6 byte header:
+// three ident bytes
+// 1 byte command
+// N byte payload based on command
+const uint32_t HEADER_BYTES = 6;
+const uint8_t IDENT_BYTE_0 = 'E';
+const uint8_t IDENT_BYTE_1 = 'P';
+const uint8_t IDENT_BYTE_2 = 'T';
+const uint32_t USER_0_POS = 4;
+const uint32_t USER_1_POS = 5;
+const uint32_t COMMAND_POS = 3;
+
+struct NSPData
+{
+    uint8_t tx_buffer[BUFFER_SIZE];
+    uint8_t rx_buffer[BUFFER_SIZE];
+    int is_waiting_for_payload_bytes;
+    int num_payload_bytes;
+};
+
+struct NSPData nsp_data;
+
+void nsp_init(struct NSPData* nsp_data)
+{
+	nsp_data->is_waiting_for_payload_bytes = 0;
+	nsp_data->num_payload_bytes = 0;
+}
+
+uint16_t nsp_packet_start(uint8_t* buffer, uint8_t ptype, uint8_t u0, uint8_t u1)
+{
+	uint16_t write_ptr = 0;
+
+    buffer[write_ptr] = IDENT_BYTE_0;
+    write_ptr += 1;
+    buffer[write_ptr] = IDENT_BYTE_1;
+    write_ptr += 1;
+    buffer[write_ptr] = IDENT_BYTE_2;
+    write_ptr += 1;
+    buffer[write_ptr] = ptype; // command type
+    write_ptr += 1;
+
+    // user bytes
+    buffer[write_ptr] = u0;
+    write_ptr += 1;
+    buffer[write_ptr] = u1;
+    write_ptr += 1;
+
+    return write_ptr;
+}
+
+void nsp_send_packet(uint8_t* buffer, uint16_t len) {
+	HAL_UART_Transmit(&huart1, buffer, len, 0xFFFF);
+}
+
+void nsp_send_ping_packet(struct NSPData* nsp_data) {
+	uint16_t write_ptr = nsp_packet_start(nsp_data->tx_buffer, PING_TYPE, 0, 0);
+    nsp_send_packet(nsp_data->tx_buffer, write_ptr);
+}
+
+void nsp_send_pong_packet(struct NSPData* nsp_data) {
+	uint16_t write_ptr = nsp_packet_start(nsp_data->tx_buffer, PONG_TYPE, 0, 0);
+    nsp_send_packet(nsp_data->tx_buffer, write_ptr);
+}
+
+void nsp_start_read(struct NSPData* nsp_data) {
+	HAL_UART_Receive_DMA(&huart1, nsp_data->rx_buffer, HEADER_BYTES);
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+//	  HAL_UART_Transmit(&huart1, inbuffer, 4, 0xFFFF);
+//	  HAL_UART_Receive_DMA(&huart1, inbuffer, 4);
+	nsp_start_read(&nsp_data);
+	actually_light_stuff_up = !actually_light_stuff_up;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
 
 /* USER CODE END PV */
 
@@ -140,6 +231,7 @@ int main(void)
     HAL_Delay(500);	// not sure about this..
 
 
+    nsp_start_read(&nsp_data);
 
 //
 //  ARGB_Clear(); // Clear stirp
@@ -151,8 +243,11 @@ int main(void)
 
 
   int delay = 50;
-  int delay_inc = 50;
-  int delay_dir = 1;
+//  int delay_inc = 50;
+//  int delay_dir = 1;
+
+
+  nsp_init(&nsp_data);
 
 
 //  ARGB_FillRGB(0, 128, 0);
@@ -163,22 +258,32 @@ int main(void)
   struct FooBar yeah1 = {128,1};
   struct FooBar yeah2 = {200,2};
 
-  uint8_t buffer[4];
-  buffer[0] = 'A';
-  buffer[1] = 'B';
-  buffer[2] = 'C';
-  buffer[3] = 'D';
+//  uint8_t buffer[4];
+//  buffer[0] = 'A';
+//  buffer[1] = 'B';
+//  buffer[2] = 'C';
+//  buffer[3] = 'D';
 
 
-  HAL_UART_Receive_DMA(&huart1, inbuffer, 4);
+//  HAL_UART_Receive_DMA(&huart1, inbuffer, 4);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  uint32_t last_ping_tick = HAL_GetTick();
   while (1)
   {
 	  delay = 5;
+
+
+	  // Ping every second
+	  uint32_t cur_ping_tick = HAL_GetTick();
+	  if (cur_ping_tick - last_ping_tick > 1000) {
+		  nsp_send_ping_packet(&nsp_data);
+		  last_ping_tick = cur_ping_tick;
+	  }
+
 
 //	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
 //	  HAL_Delay(delay);
@@ -196,6 +301,8 @@ int main(void)
 //			  delay_dir = !delay_dir;
 //		  }
 //	  }
+
+
 
 	  update(&yeah0);
 	  update(&yeah1);
@@ -484,11 +591,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
-	  HAL_UART_Transmit(&huart1, inbuffer, 4, 0xFFFF);
-	  HAL_UART_Receive_DMA(&huart1, inbuffer, 4);
-	  actually_light_stuff_up = !actually_light_stuff_up;
-}
+
 
 /* USER CODE END 4 */
 
