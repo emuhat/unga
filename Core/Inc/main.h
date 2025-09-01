@@ -59,6 +59,12 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define SENC_A_Pin GPIO_PIN_0
+#define SENC_A_GPIO_Port GPIOB
+#define SENC_B_Pin GPIO_PIN_1
+#define SENC_B_GPIO_Port GPIOB
+#define SENC_SW_Pin GPIO_PIN_2
+#define SENC_SW_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

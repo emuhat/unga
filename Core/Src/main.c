@@ -18,11 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "ARGB.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdarg.h>
+#include "ARGB.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -59,6 +59,7 @@ int actually_light_stuff_up = 0;
 const uint8_t PING_TYPE = 0;
 const uint8_t PONG_TYPE = 1;
 const uint8_t STRING_TYPE = 2;
+const uint8_t TOGGLE_LIGHT_TYPE = 3;
 
 #define BUFFER_SIZE 512
 #define MAX_PACKET_SIZE 512
@@ -95,20 +96,14 @@ uint16_t nsp_packet_start(uint8_t* buffer, uint8_t ptype, uint8_t u0, uint8_t u1
 {
 	uint16_t write_ptr = 0;
 
-    buffer[write_ptr] = IDENT_BYTE_0;
-    write_ptr += 1;
-    buffer[write_ptr] = IDENT_BYTE_1;
-    write_ptr += 1;
-    buffer[write_ptr] = IDENT_BYTE_2;
-    write_ptr += 1;
-    buffer[write_ptr] = ptype; // command type
-    write_ptr += 1;
+    buffer[write_ptr++] = IDENT_BYTE_0;
+    buffer[write_ptr++] = IDENT_BYTE_1;
+    buffer[write_ptr++] = IDENT_BYTE_2;
+    buffer[write_ptr++] = ptype; // command type
 
     // user bytes
-    buffer[write_ptr] = u0;
-    write_ptr += 1;
-    buffer[write_ptr] = u1;
-    write_ptr += 1;
+    buffer[write_ptr++] = u0;
+    buffer[write_ptr++] = u1;
 
     return write_ptr;
 }
@@ -131,11 +126,43 @@ void nsp_start_read(struct NSPData* nsp_data) {
 	HAL_UART_Receive_DMA(&huart1, nsp_data->rx_buffer, HEADER_BYTES);
 }
 
+void nsp_print(struct NSPData* nsp_data, const char *fmt, ...) {
+    char buf[256];  // adjust size to your needs
+    va_list args;
+    va_start(args, fmt);
+    int n = vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+
+    if (n > 0) {
+        uint8_t u0 = (n & 0xff);
+        uint8_t u1 = (n >> 8);
+
+    	nsp_packet_start(nsp_data->tx_buffer, STRING_TYPE, u0, u1);
+    	strcpy((char*)nsp_data->tx_buffer + HEADER_BYTES, buf);
+    	nsp_send_packet(nsp_data->tx_buffer, HEADER_BYTES + n);
+    }
+}
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 //	  HAL_UART_Transmit(&huart1, inbuffer, 4, 0xFFFF);
 //	  HAL_UART_Receive_DMA(&huart1, inbuffer, 4);
+
+
+	if (nsp_data.rx_buffer[0] == IDENT_BYTE_0 &&
+			nsp_data.rx_buffer[1] == IDENT_BYTE_1 &&
+			nsp_data.rx_buffer[2] == IDENT_BYTE_2 &&
+			nsp_data.rx_buffer[3] == TOGGLE_LIGHT_TYPE
+			)
+	{
+		actually_light_stuff_up = !actually_light_stuff_up;
+	}
+
+
+	// Initiate the next read
 	nsp_start_read(&nsp_data);
-	actually_light_stuff_up = !actually_light_stuff_up;
+
+	// Hered we'd call into the dispatching/read
+	//actually_light_stuff_up = !actually_light_stuff_up;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -272,6 +299,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   uint32_t last_ping_tick = HAL_GetTick();
+  int counter = 0;
   while (1)
   {
 	  delay = 5;
@@ -279,28 +307,23 @@ int main(void)
 
 	  // Ping every second
 	  uint32_t cur_ping_tick = HAL_GetTick();
-	  if (cur_ping_tick - last_ping_tick > 1000) {
+	  if (cur_ping_tick - last_ping_tick > 200) {
+//		  nsp_send_ping_packet(&nsp_data);
+
+
+		  nsp_print(&nsp_data, "abcd %d", counter++);
+
 		  nsp_send_ping_packet(&nsp_data);
+
 		  last_ping_tick = cur_ping_tick;
 	  }
+
 
 
 //	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
 //	  HAL_Delay(delay);
 //	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
 	  HAL_Delay(delay);
-
-//	  if (delay_dir) {
-//		  delay += delay_inc;
-//		  if (delay > 1000) {
-//			  delay_dir = !delay_dir;
-//		  }
-//	  } else {
-//		  delay -= delay_inc;
-//		  if (delay < 40) {
-//			  delay_dir = !delay_dir;
-//		  }
-//	  }
 
 
 
@@ -561,14 +584,20 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5|GPIO_PIN_7, GPIO_PIN_RESET);
+
+  /*Configure GPIO pins : SENC_A_Pin SENC_B_Pin SENC_SW_Pin */
+  GPIO_InitStruct.Pin = SENC_A_Pin|SENC_B_Pin|SENC_SW_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA11 */
   GPIO_InitStruct.Pin = GPIO_PIN_11;
