@@ -50,7 +50,7 @@ DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
 uint8_t inbuffer[4];
-int actually_light_stuff_up = 0;
+int actually_light_stuff_up = 1;
 
 /////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
@@ -307,7 +307,7 @@ int main(void)
 
 	  // Ping every second
 	  uint32_t cur_ping_tick = HAL_GetTick();
-	  if (cur_ping_tick - last_ping_tick > 200) {
+	  if (cur_ping_tick - last_ping_tick > 2000) {
 //		  nsp_send_ping_packet(&nsp_data);
 
 
@@ -593,11 +593,17 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5|GPIO_PIN_7, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : SENC_A_Pin SENC_B_Pin SENC_SW_Pin */
-  GPIO_InitStruct.Pin = SENC_A_Pin|SENC_B_Pin|SENC_SW_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  /*Configure GPIO pins : SENC_A_Pin SENC_B_Pin */
+  GPIO_InitStruct.Pin = SENC_A_Pin|SENC_B_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : SENC_SW_Pin */
+  GPIO_InitStruct.Pin = SENC_SW_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(SENC_SW_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA11 */
   GPIO_InitStruct.Pin = GPIO_PIN_11;
@@ -613,6 +619,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
   /* USER CODE END MX_GPIO_Init_2 */
@@ -620,6 +633,33 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+// global/static
+volatile int encoder_count = 0;
+static uint8_t last_state = 0;
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+    if (GPIO_Pin == SENC_A_Pin || GPIO_Pin == SENC_B_Pin) {
+        // Read current 2-bit state
+        uint8_t a = HAL_GPIO_ReadPin(SENC_A_GPIO_Port, SENC_A_Pin);
+        uint8_t b = HAL_GPIO_ReadPin(SENC_B_GPIO_Port, SENC_B_Pin);
+        uint8_t state = (a << 1) | b;
+
+        // Combine last + current into 4-bit index
+        uint8_t index = (last_state << 2) | state;
+
+        // Lookup table: +1 for CW, -1 for CCW, 0 for invalid/no move
+        static const int8_t table[16] = {
+            0, -1, +1,  0,
+            +1,  0,  0, -1,
+            -1,  0,  0, +1,
+            0,  +1, -1,  0
+        };
+
+        encoder_count += table[index];
+        nsp_print(&nsp_data, "encoder %d", encoder_count);
+        last_state = state;
+    }
+}
 
 
 /* USER CODE END 4 */

@@ -61,8 +61,10 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define SENC_A_Pin GPIO_PIN_0
 #define SENC_A_GPIO_Port GPIOB
+#define SENC_A_EXTI_IRQn EXTI0_IRQn
 #define SENC_B_Pin GPIO_PIN_1
 #define SENC_B_GPIO_Port GPIOB
+#define SENC_B_EXTI_IRQn EXTI1_IRQn
 #define SENC_SW_Pin GPIO_PIN_2
 #define SENC_SW_GPIO_Port GPIOB
 
