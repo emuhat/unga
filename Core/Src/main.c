@@ -76,12 +76,20 @@ const uint32_t USER_0_POS = 4;
 const uint32_t USER_1_POS = 5;
 const uint32_t COMMAND_POS = 3;
 
+
+const int MODE_SCANNING = 0;
+const int MODE_RECEIVING_HEADER = 1;
+const int MODE_RECEIVING_PAYLOAD = 2;
+
 struct NSPData
 {
     uint8_t tx_buffer[BUFFER_SIZE];
     uint8_t rx_buffer[BUFFER_SIZE];
     int is_waiting_for_payload_bytes;
     int num_payload_bytes;
+    int mode;
+
+    int write_ptr;
 };
 
 struct NSPData nsp_data;
@@ -90,6 +98,8 @@ void nsp_init(struct NSPData* nsp_data)
 {
 	nsp_data->is_waiting_for_payload_bytes = 0;
 	nsp_data->num_payload_bytes = 0;
+	nsp_data->write_ptr = 0;
+	nsp_data->mode = MODE_SCANNING;
 }
 
 uint16_t nsp_packet_start(uint8_t* buffer, uint8_t ptype, uint8_t u0, uint8_t u1)
@@ -122,9 +132,9 @@ void nsp_send_pong_packet(struct NSPData* nsp_data) {
     nsp_send_packet(nsp_data->tx_buffer, write_ptr);
 }
 
-void nsp_start_read(struct NSPData* nsp_data) {
-	HAL_UART_Receive_DMA(&huart1, nsp_data->rx_buffer, HEADER_BYTES);
-}
+//void nsp_start_read(struct NSPData* nsp_data) {
+//	HAL_UART_Receive_DMA(&huart1, nsp_data->rx_buffer, HEADER_BYTES);
+//}
 
 void nsp_print(struct NSPData* nsp_data, const char *fmt, ...) {
     char buf[256];  // adjust size to your needs
@@ -159,7 +169,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 
 
 	// Initiate the next read
-	nsp_start_read(&nsp_data);
+//	nsp_start_read(&nsp_data);
 
 	// Hered we'd call into the dispatching/read
 	//actually_light_stuff_up = !actually_light_stuff_up;
@@ -185,6 +195,9 @@ struct FooBar {
   int rgb;
 };
 
+#define UART_RX_BUFFER_SIZE  40
+uint8_t UART1_RxBuffer[UART_RX_BUFFER_SIZE] = {0};
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -206,6 +219,47 @@ void draw(int x, struct FooBar* fb) {
   		ARGB_SetRGB(x, fb->rgb==0?fb->x:0, fb->rgb==1?fb->x:0, fb->rgb==2?fb->x:0);
 
 
+}
+
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
+{
+//    RxDataLen = Size;
+//    HAL_UART_Transmit(&huart1, UART1_RxBuffer, RxDataLen, 100);
+//
+
+	int nbytes = 0;
+
+
+	nbytes = size - nsp_data.write_ptr;
+	nsp_data.write_ptr += nbytes;
+
+
+
+//	if (size < nsp_data.write_ptr) {
+//		n_bytes_recv = UART_RX_BUFFER_SIZE + size - nsp_data.write_ptr;
+//	} else {
+//		n_bytes_recv = size - nsp_data.write_ptr;
+//	}
+//	nsp_data.write_ptr = (nsp_data.write_ptr + n_bytes_recv) % UART_RX_BUFFER_SIZE;
+
+
+
+
+
+
+	nsp_print(&nsp_data, ">> BLERP size = %d", size);
+	nsp_print(&nsp_data, "     nbytes = %d", nbytes);
+	nsp_print(&nsp_data, "     write ptr = %d", nsp_data.write_ptr );
+
+	if (nsp_data.write_ptr >= UART_RX_BUFFER_SIZE) {
+		nsp_data.write_ptr = 0;
+	}
+
+//    nsp_print(&nsp_data, ">> got %d bytes,  %d to %d", Size, nsp_data.write_ptr, (nsp_data.write_ptr + Size) % UART_RX_BUFFER_SIZE);
+//
+//    nsp_data.write_ptr = (nsp_data.write_ptr + Size) % UART_RX_BUFFER_SIZE;
+
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, UART1_RxBuffer, UART_RX_BUFFER_SIZE);
 }
 
 /* USER CODE END 0 */
@@ -258,7 +312,9 @@ int main(void)
     HAL_Delay(500);	// not sure about this..
 
 
-    nsp_start_read(&nsp_data);
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, UART1_RxBuffer, UART_RX_BUFFER_SIZE);
+
+//    nsp_start_read(&nsp_data);
 
 //
 //  ARGB_Clear(); // Clear stirp
@@ -292,6 +348,9 @@ int main(void)
 //  buffer[3] = 'D';
 
 
+
+
+
 //  HAL_UART_Receive_DMA(&huart1, inbuffer, 4);
 
   /* USER CODE END 2 */
@@ -307,11 +366,11 @@ int main(void)
 
 	  // Ping every second
 	  uint32_t cur_ping_tick = HAL_GetTick();
-	  if (cur_ping_tick - last_ping_tick > 2000) {
+	  if (cur_ping_tick - last_ping_tick > 1000) {
 //		  nsp_send_ping_packet(&nsp_data);
 
 
-		  nsp_print(&nsp_data, "abcd %d", counter++);
+//		  nsp_print(&nsp_data, "abcd %d", counter++);
 
 		  nsp_send_ping_packet(&nsp_data);
 
