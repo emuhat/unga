@@ -49,12 +49,27 @@ UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
-uint8_t inbuffer[4];
+//uint8_t inbuffer[4];
 int actually_light_stuff_up = 1;
 
 /////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
+
+
+/*
+
+  Bytes show up
+
+  write_ptr
+
+  num_bytes_to_read
+
+  recv_mode
+
+*/
+
+
 
 const uint8_t PING_TYPE = 0;
 const uint8_t PONG_TYPE = 1;
@@ -68,47 +83,94 @@ const uint8_t TOGGLE_LIGHT_TYPE = 3;
 // three ident bytes
 // 1 byte command
 // N byte payload based on command
+const uint8_t IDENT_BYTES[] = { 'E', 'P', 'T' };
+const size_t IDENT_LEN = sizeof(IDENT_BYTES) / sizeof(IDENT_BYTES[0]);
+
 const uint32_t HEADER_BYTES = 6;
-const uint8_t IDENT_BYTE_0 = 'E';
-const uint8_t IDENT_BYTE_1 = 'P';
-const uint8_t IDENT_BYTE_2 = 'T';
 const uint32_t USER_0_POS = 4;
 const uint32_t USER_1_POS = 5;
 const uint32_t COMMAND_POS = 3;
 
 
-const int MODE_SCANNING = 0;
+const int MODE_SCANNING_FOR_HEADER = 0;
 const int MODE_RECEIVING_HEADER = 1;
 const int MODE_RECEIVING_PAYLOAD = 2;
 
-struct NSPData
-{
-    uint8_t tx_buffer[BUFFER_SIZE];
-    uint8_t rx_buffer[BUFFER_SIZE];
-    int is_waiting_for_payload_bytes;
-    int num_payload_bytes;
-    int mode;
+#define UART_RX_BUFFER_SIZE  40
 
+struct SerialRead
+{
+	uint8_t* buffer;
+	uint32_t buf_size;
+    int read_ptr;			// the latest we've processed
     int write_ptr;
 };
 
+
+struct NSPData
+{
+	struct SerialRead* sr;
+    uint8_t tx_buffer[BUFFER_SIZE];
+    int packet_start;
+    int num_bytes_to_read;	// starting from the packet_start_ptr
+    int recv_mode;
+};
+
+
+
+
+struct SerialRead from_pi;
+
 struct NSPData nsp_data;
 
-void nsp_init(struct NSPData* nsp_data)
+void sr_init(struct SerialRead* sr, uint32_t buf_size) {
+	sr->buffer = (uint8_t*)malloc(buf_size);
+	sr->buf_size = buf_size;
+	sr->read_ptr = 0;
+	sr->write_ptr = 0;
+}
+
+uint32_t sr_byte_diff(struct SerialRead* sr, int start, int end) {
+	return start > end ? end + sr->buf_size - start : end - start;
+}
+
+uint32_t sr_add_offset(struct SerialRead* sr, int start, int offset) {
+	return (start + offset) % sr->buf_size;
+}
+
+uint32_t sr_bytes_available(struct SerialRead* sr) {
+	// if the read ptr is ahead of the write ptr, it means the write pointer has wrapped
+//	return sr->read_ptr > sr->write_ptr ? sr->write_ptr + sr->buf_size - sr->read_ptr : sr->write_ptr - sr->read_ptr;
+	return sr_byte_diff(sr, sr->read_ptr, sr->write_ptr);
+}
+
+void nsp_set_for_header_scan(struct NSPData* nsp_data)
 {
-	nsp_data->is_waiting_for_payload_bytes = 0;
-	nsp_data->num_payload_bytes = 0;
-	nsp_data->write_ptr = 0;
-	nsp_data->mode = MODE_SCANNING;
+	nsp_data->recv_mode = MODE_SCANNING_FOR_HEADER;
+	nsp_data->num_bytes_to_read = 1; // 1 byte at a time in scan mode
+	nsp_data->packet_start = nsp_data->sr->read_ptr;
+}
+
+void nsp_set_for_header_receive(struct NSPData* nsp_data)
+{
+	nsp_data->recv_mode = MODE_RECEIVING_HEADER;
+	nsp_data->num_bytes_to_read = HEADER_BYTES;  // Looking for the whole header
+	nsp_data->packet_start = nsp_data->sr->read_ptr;
+}
+
+void nsp_init(struct NSPData* nsp, struct SerialRead* sr)
+{
+	nsp->sr = sr;
+	nsp_set_for_header_scan(nsp);
 }
 
 uint16_t nsp_packet_start(uint8_t* buffer, uint8_t ptype, uint8_t u0, uint8_t u1)
 {
 	uint16_t write_ptr = 0;
 
-    buffer[write_ptr++] = IDENT_BYTE_0;
-    buffer[write_ptr++] = IDENT_BYTE_1;
-    buffer[write_ptr++] = IDENT_BYTE_2;
+    buffer[write_ptr++] = IDENT_BYTES[0];
+    buffer[write_ptr++] = IDENT_BYTES[1];
+    buffer[write_ptr++] = IDENT_BYTES[2];
     buffer[write_ptr++] = ptype; // command type
 
     // user bytes
@@ -153,6 +215,114 @@ void nsp_print(struct NSPData* nsp_data, const char *fmt, ...) {
     }
 }
 
+void sr_advance_read_ptr(struct SerialRead* sr, uint32_t count) {
+
+//	nsp_print(&nsp_data, "adv: ba=%d, write is %d, read was %d, advancing by %d", sr_bytes_available(sr), sr->write_ptr, sr->read_ptr, count);
+	sr->read_ptr = (sr->read_ptr + count) % sr->buf_size;
+}
+
+void nsp_dispatch(struct NSPData* nsp) {
+	nsp_print(nsp, "maybe dispatch a packet!!");
+	struct SerialRead* sr = nsp->sr;
+
+
+	int safe_cmd_offset = sr_add_offset(sr, nsp->packet_start, COMMAND_POS);
+	int command = sr->buffer[safe_cmd_offset];
+
+	if (command == TOGGLE_LIGHT_TYPE) {
+		actually_light_stuff_up = !actually_light_stuff_up;
+	}
+}
+
+void nsp_process_rx(struct NSPData* nsp)
+{
+	struct SerialRead* sr = nsp->sr;
+	while (1)
+	{
+		uint32_t bytes_avail = sr_bytes_available(&from_pi);
+
+		// ignore if we don't have the number of required bytes
+		if (bytes_avail < nsp->num_bytes_to_read) {
+			return;
+		}
+
+//		nsp_print(nsp, "BYtesAvail %d, read_pointer = %d", bytes_avail, sr->read_ptr);
+
+
+		if (nsp->recv_mode == MODE_SCANNING_FOR_HEADER) {
+
+			int good = 0;
+			int byte_to_check = sr_byte_diff(sr, nsp->packet_start, sr->read_ptr);	// which byte we're checking
+
+//			nsp_print(nsp, "bc = %d", byte_check);
+
+			if (byte_to_check < IDENT_LEN)
+			{
+//				nsp_print(nsp, "bc = %d", byte_check);
+//				nsp_print(nsp, "exp = %d", IDENT_BYTES[byte_check]);
+//				nsp_print(nsp, "got = %d", sr->buffer[sr->read_ptr]);
+
+				if (IDENT_BYTES[byte_to_check] == sr->buffer[sr->read_ptr]) {
+					nsp_print(nsp, "awesome");
+					good = 1;
+				}
+
+				sr_advance_read_ptr(&from_pi, 1);	// move to next byte no matter what
+			}
+
+			// huzzah, we reached the end and successfully found all the ident bytes!
+			else if (byte_to_check == IDENT_LEN) {
+				nsp_print(nsp, "double awesome");
+				nsp->recv_mode = MODE_RECEIVING_HEADER;
+				nsp->num_bytes_to_read = HEADER_BYTES - IDENT_LEN;	// set up to receive the rest of the header
+				good = 1;
+
+				// Note not advancing the read pointer here -- it's already at the right spot
+			}
+
+			if (!good) {
+				nsp_print(nsp, "not good!!");
+				nsp_set_for_header_scan(nsp);
+			}
+		}
+
+		else if (nsp->recv_mode == MODE_RECEIVING_HEADER) {
+
+			// check here to see if ident matches
+			int good = 1;
+			for (int i = 0; i < IDENT_LEN; ++i) {
+				int safe_off = sr_add_offset(sr, nsp->packet_start, i);
+//				nsp_print(nsp, "SafeOff %d", safe_off);
+				if (IDENT_BYTES[i] != sr->buffer[safe_off]) {
+					good = 0;	// whuh oh, ident doesn't match
+					break;
+				}
+			}
+
+			if (good)
+			{
+				nsp_dispatch(nsp);
+
+				// skip past the rest of the header
+				sr_advance_read_ptr(&from_pi, nsp->num_bytes_to_read);
+
+				// set up to receive the next header
+				nsp_set_for_header_receive(nsp);
+
+//				nsp_print(nsp, "set up for header recv at %d", sr->read_ptr);
+			}
+
+			// jump to next byte and start scanning
+			else {
+				sr_advance_read_ptr(&from_pi, nsp->num_bytes_to_read);
+				nsp_set_for_header_scan(nsp);
+			}
+		}
+	}
+}
+
+
+/*
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 //	  HAL_UART_Transmit(&huart1, inbuffer, 4, 0xFFFF);
 //	  HAL_UART_Receive_DMA(&huart1, inbuffer, 4);
@@ -174,6 +344,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 	// Hered we'd call into the dispatching/read
 	//actually_light_stuff_up = !actually_light_stuff_up;
 }
+*/
 
 /////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
@@ -195,8 +366,7 @@ struct FooBar {
   int rgb;
 };
 
-#define UART_RX_BUFFER_SIZE  40
-uint8_t UART1_RxBuffer[UART_RX_BUFFER_SIZE] = {0};
+
 
 /* USER CODE END PFP */
 
@@ -221,45 +391,14 @@ void draw(int x, struct FooBar* fb) {
 
 }
 
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t cur_write_ptr)
 {
-//    RxDataLen = Size;
-//    HAL_UART_Transmit(&huart1, UART1_RxBuffer, RxDataLen, 100);
-//
+	// size is num bytes that have been written into my buffer; caps out at buffer size
+	// force a wrap to zero if we hit the edge of the read buffer
+	from_pi.write_ptr = cur_write_ptr == from_pi.buf_size ? 0 : cur_write_ptr;
 
-	int nbytes = 0;
-
-
-	nbytes = size - nsp_data.write_ptr;
-	nsp_data.write_ptr += nbytes;
-
-
-
-//	if (size < nsp_data.write_ptr) {
-//		n_bytes_recv = UART_RX_BUFFER_SIZE + size - nsp_data.write_ptr;
-//	} else {
-//		n_bytes_recv = size - nsp_data.write_ptr;
-//	}
-//	nsp_data.write_ptr = (nsp_data.write_ptr + n_bytes_recv) % UART_RX_BUFFER_SIZE;
-
-
-
-
-
-
-	nsp_print(&nsp_data, ">> BLERP size = %d", size);
-	nsp_print(&nsp_data, "     nbytes = %d", nbytes);
-	nsp_print(&nsp_data, "     write ptr = %d", nsp_data.write_ptr );
-
-	if (nsp_data.write_ptr >= UART_RX_BUFFER_SIZE) {
-		nsp_data.write_ptr = 0;
-	}
-
-//    nsp_print(&nsp_data, ">> got %d bytes,  %d to %d", Size, nsp_data.write_ptr, (nsp_data.write_ptr + Size) % UART_RX_BUFFER_SIZE);
-//
-//    nsp_data.write_ptr = (nsp_data.write_ptr + Size) % UART_RX_BUFFER_SIZE;
-
-    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, UART1_RxBuffer, UART_RX_BUFFER_SIZE);
+	// Initiate another read
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, from_pi.buffer, UART_RX_BUFFER_SIZE);
 }
 
 /* USER CODE END 0 */
@@ -312,7 +451,7 @@ int main(void)
     HAL_Delay(500);	// not sure about this..
 
 
-    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, UART1_RxBuffer, UART_RX_BUFFER_SIZE);
+
 
 //    nsp_start_read(&nsp_data);
 
@@ -330,7 +469,13 @@ int main(void)
 //  int delay_dir = 1;
 
 
-  nsp_init(&nsp_data);
+	sr_init(&from_pi, UART_RX_BUFFER_SIZE);
+
+
+	nsp_init(&nsp_data, &from_pi);
+
+	HAL_UARTEx_ReceiveToIdle_DMA(&huart1, from_pi.buffer, UART_RX_BUFFER_SIZE);
+
 
 
 //  ARGB_FillRGB(0, 128, 0);
@@ -358,10 +503,15 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   uint32_t last_ping_tick = HAL_GetTick();
-  int counter = 0;
   while (1)
   {
 	  delay = 5;
+	  HAL_Delay(delay);
+
+
+
+
+
 
 
 	  // Ping every second
@@ -382,7 +532,13 @@ int main(void)
 //	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
 //	  HAL_Delay(delay);
 //	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
-	  HAL_Delay(delay);
+
+
+
+
+		 nsp_process_rx(&nsp_data);
+
+
 
 
 
