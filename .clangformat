@@ -1,0 +1,44 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# Braces & control structures
+BreakBeforeBraces: Attach    # puts brace on same line (K&R style)
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+
+# Line breaking
+ColumnLimit: 100
+AlwaysBreakAfterReturnType: None
+PenaltyReturnTypeOnItsOwnLine: 200
+
+# Switch/case
+IndentCaseLabels: true
+IndentGotoLabels: true
+
+# Pointers & references
+PointerAlignment: Right    # "int *ptr" instead of "int* ptr"
+SpaceBeforeParens: ControlStatements
+
+# Includes
+IncludeBlocks: Regroup
+SortIncludes: true
+
+# Structs & enums
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignOperands: true
+AlignTrailingComments: true
+
+# Function calls & definitions
+BinPackArguments: false
+BinPackParameters: false
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+# Misc
+SpaceBeforeSquareBrackets: false
+Cpp11BracedListStyle: false
