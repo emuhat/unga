@@ -19,6 +19,8 @@ struct NSPData {
 void nsp_init(struct NSPData *nsp, struct SerialRead *sr);
 void nsp_send_ping_packet(struct NSPData *nsp_data);
 void nsp_send_pong_packet(struct NSPData *nsp_data);
+void nsp_send_volume_up(struct NSPData *nsp_data);
+void nsp_send_volume_down(struct NSPData *nsp_data);
 void nsp_process_rx(struct NSPData *nsp);
 void nsp_print(struct NSPData *nsp_data, const char *fmt, ...);
 

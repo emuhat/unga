@@ -10,6 +10,8 @@ const uint8_t PING_TYPE = 0;
 const uint8_t PONG_TYPE = 1;
 const uint8_t STRING_TYPE = 2;
 const uint8_t TOGGLE_LIGHT_TYPE = 3;
+const uint8_t VOLUME_UP_TYPE = 4;
+const uint8_t VOLUME_DOWN_TYPE = 5;
 
 #define MAX_PACKET_SIZE 512
 
@@ -73,6 +75,18 @@ void nsp_send_ping_packet(struct NSPData *nsp_data) {
 
 void nsp_send_pong_packet(struct NSPData *nsp_data) {
   uint16_t write_ptr = nsp_packet_start(nsp_data->tx_buffer, PONG_TYPE, 0, 0);
+  nsp_send_packet(nsp_data->tx_buffer, write_ptr);
+}
+
+void nsp_send_volume_up(struct NSPData *nsp_data) {
+  uint16_t write_ptr =
+      nsp_packet_start(nsp_data->tx_buffer, VOLUME_UP_TYPE, 0, 0);
+  nsp_send_packet(nsp_data->tx_buffer, write_ptr);
+}
+
+void nsp_send_volume_down(struct NSPData *nsp_data) {
+  uint16_t write_ptr =
+      nsp_packet_start(nsp_data->tx_buffer, VOLUME_DOWN_TYPE, 0, 0);
   nsp_send_packet(nsp_data->tx_buffer, write_ptr);
 }
 

@@ -521,6 +521,15 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
     encoder_count += table[index];
     nsp_print(&nsp_data, "encoder %d", encoder_count);
+
+    if (table[index] > 0) {
+      nsp_send_volume_up(&nsp_data);
+    }
+
+    else if (table[index] < 0) {
+      nsp_send_volume_down(&nsp_data);
+    }
+
     last_state = state;
   }
 }
