@@ -46,6 +46,9 @@ void nsp_set_for_header_receive(struct NSPData *nsp_data) {
 void nsp_init(struct NSPData *nsp, UART_HandleTypeDef *uart_handle) {
   sr_init(&nsp->sr, uart_handle, UART_RX_BUFFER_SIZE);
   nsp_set_for_header_scan(nsp);
+
+  // start a receive
+  sr_recv_to_idle(&nsp->sr);
 }
 
 uint16_t nsp_packet_start(uint8_t *buffer, uint8_t ptype, uint8_t u0,

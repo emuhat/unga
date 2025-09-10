@@ -24,7 +24,7 @@
 
 #include "ARGB.h"
 #include "nsp.h"
-#include "serial_read.h"
+#include "radar.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,6 +58,7 @@ int actually_light_stuff_up = 1;
 /////////////////////////////////////////////////////////////////////////////////////
 
 struct NSPData nsp_data;
+struct RadarData radar_data;
 
 /////////////////////////////////////////////////////////////////////////////////////
 
@@ -177,7 +178,7 @@ int main(void) {
 
   nsp_init(&nsp_data, &huart1);
 
-  sr_recv_to_idle(&nsp_data.sr);
+  radar_init(&radar_data, &nsp_data, &huart2);
 
   //  ARGB_FillRGB(0, 128, 0);
   //  while (!ARGB_Show());
