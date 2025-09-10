@@ -103,13 +103,20 @@ void draw(int x, struct FooBar *fb) {
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart,
                                 uint16_t cur_write_ptr) {
-  // size is num bytes that have been written into my buffer; caps out at buffer
-  // size force a wrap to zero if we hit the edge of the read buffer
-  nsp_data.sr.write_ptr =
-      cur_write_ptr == nsp_data.sr.buf_size ? 0 : cur_write_ptr;
 
-  // Initiate another read
-  sr_recv_to_idle(&nsp_data.sr);
+  if (huart == &huart1) {
+    // size is num bytes that have been written into my buffer; caps out at
+    // buffer size force a wrap to zero if we hit the edge of the read buffer
+    nsp_data.sr.write_ptr =
+        cur_write_ptr == nsp_data.sr.buf_size ? 0 : cur_write_ptr;
+
+    // Initiate another read
+    sr_recv_to_idle(&nsp_data.sr);
+  }
+
+  else if (huart == &huart2) {
+    nsp_print(&nsp_data, "Got radar bytes!");
+  }
 }
 
 /* USER CODE END 0 */

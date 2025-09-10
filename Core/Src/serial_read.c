@@ -20,8 +20,7 @@ uint32_t sr_add_offset(struct SerialRead *sr, int start, int offset) {
 }
 
 uint32_t sr_bytes_available(struct SerialRead *sr) {
-  // if the read ptr is ahead of the write ptr, it means the write pointer has
-  // wrapped
+  // if the read ptr is > write ptr, it means the write pointer has wrapped
   return sr_byte_diff(sr, sr->read_ptr, sr->write_ptr);
 }
 

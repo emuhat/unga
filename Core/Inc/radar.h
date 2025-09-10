@@ -12,6 +12,8 @@ struct SerialRead;
 #define BUFFER_SIZE 512
 
 struct RadarData {
+  UART_HandleTypeDef *uart_handle;
+  struct NSPData *nsp;
   struct SerialRead sr;
   uint8_t tx_buffer[BUFFER_SIZE];
 };
