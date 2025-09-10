@@ -147,7 +147,7 @@ void nsp_process_rx(struct NSPData *nsp) {
         // "got = %d", sr->buffer[sr->read_ptr]);
 
         if (IDENT_BYTES[byte_to_check] == sr->buffer[sr->read_ptr]) {
-          nsp_print(nsp, "awesome");
+//          nsp_print(nsp, "awesome");
           good = 1;
         }
 
@@ -156,15 +156,14 @@ void nsp_process_rx(struct NSPData *nsp) {
 
       // huzzah, we reached the end and successfully found all the ident bytes!
       else if (byte_to_check == IDENT_LEN) {
-        nsp_print(nsp, "double awesome");
+        nsp_print(nsp, "nsp synced");
         nsp->recv_mode = MODE_RECEIVING_HEADER;
         nsp->num_bytes_to_read =
             HEADER_BYTES -
             IDENT_LEN; // set up to receive the rest of the header
         good = 1;
 
-        // Note not advancing the read pointer here -- it's already at the right
-        // spot
+        // Not advancing the read pointer here; it's already at the right spot
       }
 
       if (!good) {
