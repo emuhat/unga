@@ -48,6 +48,7 @@ TIM_HandleTypeDef htim2;
 DMA_HandleTypeDef hdma_tim2_ch1;
 
 UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
@@ -70,6 +71,7 @@ static void MX_DMA_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 struct FooBar {
@@ -144,6 +146,7 @@ int main(void) {
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_USART1_UART_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_Delay(500); // not sure about this...
@@ -423,6 +426,38 @@ static void MX_USART1_UART_Init(void) {
 }
 
 /**
+ * @brief USART2 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_USART2_UART_Init(void) {
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 256000;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart2) != HAL_OK) {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+}
+
+/**
  * Enable DMA controller clock
  */
 static void MX_DMA_Init(void) {
@@ -452,14 +487,14 @@ static void MX_GPIO_Init(void) {
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5 | GPIO_PIN_7, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : SENC_A_Pin SENC_B_Pin */
   GPIO_InitStruct.Pin = SENC_A_Pin | SENC_B_Pin;
@@ -467,11 +502,11 @@ static void MX_GPIO_Init(void) {
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : SENC_SW_Pin */
-  GPIO_InitStruct.Pin = SENC_SW_Pin;
+  /*Configure GPIO pins : SENC_SW_Pin RADAR_INT_Pin */
+  GPIO_InitStruct.Pin = SENC_SW_Pin | RADAR_INT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(SENC_SW_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA11 */
   GPIO_InitStruct.Pin = GPIO_PIN_11;
@@ -480,8 +515,8 @@ static void MX_GPIO_Init(void) {
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB5 PB7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_5 | GPIO_PIN_7;
+  /*Configure GPIO pin : PB7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -520,15 +555,16 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
                                      -1, 0,  0,  +1, 0,  +1, -1, 0};
 
     encoder_count += table[index];
-    nsp_print(&nsp_data, "a=%d, b=%d, last=%d, index=%d, encoder=%d", a, b, last_state, index, encoder_count);
+    nsp_print(&nsp_data, "a=%d, b=%d, last=%d, index=%d, encoder=%d", a, b,
+              last_state, index, encoder_count);
 
-//    if (table[index] > 0) {
-//      nsp_send_volume_up(&nsp_data);
-//    }
-//
-//    else if (table[index] < 0) {
-//      nsp_send_volume_down(&nsp_data);
-//    }
+    //    if (table[index] > 0) {
+    //      nsp_send_volume_up(&nsp_data);
+    //    }
+    //
+    //    else if (table[index] < 0) {
+    //      nsp_send_volume_down(&nsp_data);
+    //    }
 
     last_state = state;
   }

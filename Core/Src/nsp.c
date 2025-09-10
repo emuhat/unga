@@ -147,7 +147,7 @@ void nsp_process_rx(struct NSPData *nsp) {
         // "got = %d", sr->buffer[sr->read_ptr]);
 
         if (IDENT_BYTES[byte_to_check] == sr->buffer[sr->read_ptr]) {
-//          nsp_print(nsp, "awesome");
+          //          nsp_print(nsp, "awesome");
           good = 1;
         }
 

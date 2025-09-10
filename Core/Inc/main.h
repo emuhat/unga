@@ -59,6 +59,10 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define RADAR_TX_Pin GPIO_PIN_2
+#define RADAR_TX_GPIO_Port GPIOA
+#define RADAR_RX_Pin GPIO_PIN_3
+#define RADAR_RX_GPIO_Port GPIOA
 #define SENC_A_Pin GPIO_PIN_0
 #define SENC_A_GPIO_Port GPIOB
 #define SENC_A_EXTI_IRQn EXTI0_IRQn
@@ -67,6 +71,8 @@ void Error_Handler(void);
 #define SENC_B_EXTI_IRQn EXTI1_IRQn
 #define SENC_SW_Pin GPIO_PIN_2
 #define SENC_SW_GPIO_Port GPIOB
+#define RADAR_INT_Pin GPIO_PIN_5
+#define RADAR_INT_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
