@@ -1,6 +1,7 @@
 #ifndef NSP_H
 #define NSP_H
 
+#include "serial_read.h"
 #include "stm32l4xx_hal.h"
 #include <stdint.h>
 
@@ -9,14 +10,14 @@ struct SerialRead;
 #define BUFFER_SIZE 512
 
 struct NSPData {
-  struct SerialRead *sr;
+  struct SerialRead sr;
   uint8_t tx_buffer[BUFFER_SIZE];
   int packet_start;
   int num_bytes_to_read; // starting from the packet_start_ptr
   int recv_mode;
 };
 
-void nsp_init(struct NSPData *nsp, struct SerialRead *sr);
+void nsp_init(struct NSPData *nsp, UART_HandleTypeDef *uart_handle);
 void nsp_send_ping_packet(struct NSPData *nsp_data);
 void nsp_send_pong_packet(struct NSPData *nsp_data);
 void nsp_send_volume_up(struct NSPData *nsp_data);

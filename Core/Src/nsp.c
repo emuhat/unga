@@ -34,17 +34,17 @@ const int MODE_RECEIVING_PAYLOAD = 2;
 void nsp_set_for_header_scan(struct NSPData *nsp_data) {
   nsp_data->recv_mode = MODE_SCANNING_FOR_HEADER;
   nsp_data->num_bytes_to_read = 1; // 1 byte at a time in scan mode
-  nsp_data->packet_start = nsp_data->sr->read_ptr;
+  nsp_data->packet_start = nsp_data->sr.read_ptr;
 }
 
 void nsp_set_for_header_receive(struct NSPData *nsp_data) {
   nsp_data->recv_mode = MODE_RECEIVING_HEADER;
   nsp_data->num_bytes_to_read = HEADER_BYTES; // Looking for the whole header
-  nsp_data->packet_start = nsp_data->sr->read_ptr;
+  nsp_data->packet_start = nsp_data->sr.read_ptr;
 }
 
-void nsp_init(struct NSPData *nsp, struct SerialRead *sr) {
-  nsp->sr = sr;
+void nsp_init(struct NSPData *nsp, UART_HandleTypeDef *uart_handle) {
+  sr_init(&nsp->sr, uart_handle, UART_RX_BUFFER_SIZE);
   nsp_set_for_header_scan(nsp);
 }
 
@@ -109,7 +109,7 @@ void nsp_print(struct NSPData *nsp_data, const char *fmt, ...) {
 
 void nsp_dispatch(struct NSPData *nsp) {
   //  nsp_print(nsp, "maybe dispatch a packet!!");
-  struct SerialRead *sr = nsp->sr;
+  struct SerialRead *sr = &nsp->sr;
 
   int safe_cmd_offset = sr_add_offset(sr, nsp->packet_start, COMMAND_POS);
   int command = sr->buffer[safe_cmd_offset];
@@ -120,7 +120,7 @@ void nsp_dispatch(struct NSPData *nsp) {
 }
 
 void nsp_process_rx(struct NSPData *nsp) {
-  struct SerialRead *sr = nsp->sr;
+  struct SerialRead *sr = &nsp->sr;
   while (1) {
     uint32_t bytes_avail = sr_bytes_available(sr);
 

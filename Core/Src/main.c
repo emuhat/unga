@@ -57,7 +57,6 @@ int actually_light_stuff_up = 1;
 
 /////////////////////////////////////////////////////////////////////////////////////
 
-struct SerialRead from_pi;
 struct NSPData nsp_data;
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -105,10 +104,11 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart,
                                 uint16_t cur_write_ptr) {
   // size is num bytes that have been written into my buffer; caps out at buffer
   // size force a wrap to zero if we hit the edge of the read buffer
-  from_pi.write_ptr = cur_write_ptr == from_pi.buf_size ? 0 : cur_write_ptr;
+  nsp_data.sr.write_ptr =
+      cur_write_ptr == nsp_data.sr.buf_size ? 0 : cur_write_ptr;
 
   // Initiate another read
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, from_pi.buffer, UART_RX_BUFFER_SIZE);
+  sr_recv_to_idle(&nsp_data.sr);
 }
 
 /* USER CODE END 0 */
@@ -175,11 +175,9 @@ int main(void) {
   //  int delay_inc = 50;
   //  int delay_dir = 1;
 
-  sr_init(&from_pi, UART_RX_BUFFER_SIZE);
+  nsp_init(&nsp_data, &huart1);
 
-  nsp_init(&nsp_data, &from_pi);
-
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, from_pi.buffer, UART_RX_BUFFER_SIZE);
+  sr_recv_to_idle(&nsp_data.sr);
 
   //  ARGB_FillRGB(0, 128, 0);
   //  while (!ARGB_Show());
