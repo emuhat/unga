@@ -143,26 +143,12 @@ void ARGB_Init(void) {
   APBfq = HAL_RCC_GetPCLK2Freq();
   APBfq *= (RCC->CFGR & RCC_CFGR_PPRE2) == 0 ? 1 : 2;
 #endif
-#ifdef WS2811S
-  APBfq /= (uint32_t)(400 * 1000); // 400 KHz - 2.5us
-#else
   APBfq /= (uint32_t)(800 * 1000); // 800 KHz - 1.25us
-#endif
   TIM_HANDLE.Instance->PSC = 0;                     // dummy hardcode now
   TIM_HANDLE.Instance->ARR = (uint16_t)(APBfq - 1); // set timer prescaler
   TIM_HANDLE.Instance->EGR = 1;                     // update timer registers
-#if defined(WS2811F) || defined(WS2811S)
-  PWM_HI = (u8_t)(APBfq * 0.48) - 1; // Log.1 - 48% - 0.60us/1.2us
-  PWM_LO = (u8_t)(APBfq * 0.20) - 1; // Log.0 - 20% - 0.25us/0.5us
-#endif
-#ifdef WS2812
-  PWM_HI = (u8_t)(APBfq * 0.56) - 1; // Log.1 - 56% - 0.70us
-  PWM_LO = (u8_t)(APBfq * 0.28) - 1; // Log.0 - 28% - 0.35us
-#endif
-#ifdef SK6812
   PWM_HI = (u8_t)(APBfq * 0.48) - 1; // Log.1 - 48% - 0.60us
   PWM_LO = (u8_t)(APBfq * 0.24) - 1; // Log.0 - 24% - 0.30us
-#endif
 
   // #if INV_SIGNAL
   //     TIM_POINTER->CCER |= TIM_CCER_CC2P; // set inv ch bit
@@ -215,25 +201,13 @@ void ARGB_SetRGB(u16_t i, u8_t r, u8_t g, u8_t b) {
   b = scale8(b, 0xF0);
 #endif
   // Subpixel chain order
-#if defined(SK6812) || defined(WS2811F) || defined(WS2811S)
   const u8_t subp1 = g;
   const u8_t subp2 = r;
   const u8_t subp3 = b;
-#else
-  const u8_t subp1 = g;
-  const u8_t subp2 = r;
-  const u8_t subp3 = b;
-#endif
   // RGB or RGBW
-#ifdef SK6812
   RGB_BUF[4 * i] = subp1;     // subpixel 1
   RGB_BUF[4 * i + 1] = subp2; // subpixel 2
   RGB_BUF[4 * i + 2] = subp3; // subpixel 3
-#else
-  RGB_BUF[3 * i] = subp1;     // subpixel 1
-  RGB_BUF[3 * i + 1] = subp2; // subpixel 2
-  RGB_BUF[3 * i + 2] = subp3; // subpixel 3
-#endif
 }
 
 /**
@@ -255,9 +229,6 @@ void ARGB_SetHSV(u16_t i, u8_t hue, u8_t sat, u8_t val) {
  * @param[in] w White component [0..255]
  */
 void ARGB_SetWhite(u16_t i, u8_t w) {
-#ifdef RGB
-  return;
-#endif
   w /= 256 / ((u16_t)ARGB_BR + 1); // set brightness
   RGB_BUF[4 * i + 3] = w;          // set white part
 }
@@ -493,7 +464,6 @@ static void ARGB_TIM_DMADelayPulseCplt(DMA_HandleTypeDef *hdma) {
   if (BUF_COUNTER < NUM_PIXELS) {
     // fill second part of buffer
     for (volatile u8_t i = 0; i < 8; i++) {
-#ifdef SK6812
       PWM_BUF[i + 32] =
           (((RGB_BUF[4 * BUF_COUNTER] << i) & 0x80) > 0) ? PWM_HI : PWM_LO;
       PWM_BUF[i + 40] =
@@ -502,14 +472,6 @@ static void ARGB_TIM_DMADelayPulseCplt(DMA_HandleTypeDef *hdma) {
           (((RGB_BUF[4 * BUF_COUNTER + 2] << i) & 0x80) > 0) ? PWM_HI : PWM_LO;
       PWM_BUF[i + 56] =
           (((RGB_BUF[4 * BUF_COUNTER + 3] << i) & 0x80) > 0) ? PWM_HI : PWM_LO;
-#else
-      PWM_BUF[i + 24] =
-          (((RGB_BUF[3 * BUF_COUNTER] << i) & 0x80) > 0) ? PWM_HI : PWM_LO;
-      PWM_BUF[i + 32] =
-          (((RGB_BUF[3 * BUF_COUNTER + 1] << i) & 0x80) > 0) ? PWM_HI : PWM_LO;
-      PWM_BUF[i + 40] =
-          (((RGB_BUF[3 * BUF_COUNTER + 2] << i) & 0x80) > 0) ? PWM_HI : PWM_LO;
-#endif
     }
     BUF_COUNTER++;
   } else if (BUF_COUNTER < NUM_PIXELS + 2) { // if RET transfer
@@ -565,7 +527,6 @@ static void ARGB_TIM_DMADelayPulseHalfCplt(DMA_HandleTypeDef *hdma) {
   if (BUF_COUNTER < NUM_PIXELS) {
     // fill first part of buffer
     for (volatile u8_t i = 0; i < 8; i++) {
-#ifdef SK6812
       PWM_BUF[i] =
           (((RGB_BUF[4 * BUF_COUNTER] << i) & 0x80) > 0) ? PWM_HI : PWM_LO;
       PWM_BUF[i + 8] =
@@ -574,14 +535,6 @@ static void ARGB_TIM_DMADelayPulseHalfCplt(DMA_HandleTypeDef *hdma) {
           (((RGB_BUF[4 * BUF_COUNTER + 2] << i) & 0x80) > 0) ? PWM_HI : PWM_LO;
       PWM_BUF[i + 24] =
           (((RGB_BUF[4 * BUF_COUNTER + 3] << i) & 0x80) > 0) ? PWM_HI : PWM_LO;
-#else
-      PWM_BUF[i] =
-          (((RGB_BUF[3 * BUF_COUNTER] << i) & 0x80) > 0) ? PWM_HI : PWM_LO;
-      PWM_BUF[i + 8] =
-          (((RGB_BUF[3 * BUF_COUNTER + 1] << i) & 0x80) > 0) ? PWM_HI : PWM_LO;
-      PWM_BUF[i + 16] =
-          (((RGB_BUF[3 * BUF_COUNTER + 2] << i) & 0x80) > 0) ? PWM_HI : PWM_LO;
-#endif
     }
     BUF_COUNTER++;
   } else if (BUF_COUNTER < NUM_PIXELS + 2) { // if RET transfer

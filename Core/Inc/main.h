@@ -73,6 +73,10 @@ void Error_Handler(void);
 #define SENC_B_EXTI_IRQn EXTI1_IRQn
 #define SENC_SW_Pin GPIO_PIN_2
 #define SENC_SW_GPIO_Port GPIOB
+#define LED_BATT_TIMER_Pin GPIO_PIN_15
+#define LED_BATT_TIMER_GPIO_Port GPIOA
+#define LED_MAIN_TIMER_Pin GPIO_PIN_3
+#define LED_MAIN_TIMER_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
