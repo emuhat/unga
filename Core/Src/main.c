@@ -166,9 +166,10 @@ int main(void) {
                          //
                          //
   LEDB_Clear(); // Clear stirp
-
   while (!LEDB_Show())
     ;
+
+
   HAL_Delay(500); // not sure about this..
 
   //    nsp_start_read(&nsp_data);

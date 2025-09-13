@@ -55,6 +55,7 @@
 
 /// Timer handler
 #define TIM_HANDLE htim2
+extern TIM_HandleTypeDef(TIM_HANDLE); ///< Timer handler
 
 /// DMA Size
 typedef u32_t dma_siz;
@@ -67,7 +68,6 @@ static void HSV2RGB(u8_t hue, u8_t sat, u8_t val, u8_t *_r, u8_t *_g, u8_t *_b);
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-extern TIM_HandleTypeDef(TIM_HANDLE); ///< Timer handler
 extern DMA_HandleTypeDef(LEDB_DMA_HANDLE); ///< DMA handler
 
 volatile u8_t LEDB_PWM_HI; ///< PWM Code HI Log.1 period
@@ -87,7 +87,7 @@ volatile dma_siz LEDB_PWM_BUF[PWM_BUF_LEN] = {
 /// PWM buffer iterator
 volatile u16_t LEDB_BUF_COUNTER = 0;
 
-volatile LEDB_STATE LEDB_LEDB_LOC_ST; ///< Buffer send status
+volatile LED_STATE LEDB_LEDB_LOC_ST; ///< Buffer send status
 
 // Callbacks
 static void LEDB_TIM_DMADelayPulseCplt(DMA_HandleTypeDef *hdma);
@@ -116,7 +116,7 @@ void LEDB_Init() {
   // #else
   //     TIM_POINTER->CCER &= ~TIM_CCER_CC2P;
   // #endif
-  LEDB_LEDB_LOC_ST = LEDB_READY; // Set Ready Flag
+  LEDB_LEDB_LOC_ST = LED_READY; // Set Ready Flag
   TIM_CCxChannelCmd(TIM_HANDLE.Instance, LEDB_TIM_CH,
                     TIM_CCx_ENABLE); // Enable GPIO to IDLE state
   HAL_Delay(1);                      // Make some delay
@@ -216,19 +216,19 @@ void LEDB_FillWhite(u8_t w) {
 /**
  * @brief Get current DMA status
  * @param none
- * @return #LEDB_STATE enum
+ * @return #LED_STATE enum
  */
-LEDB_STATE LEDB_Ready() { return LEDB_LEDB_LOC_ST; }
+LED_STATE LEDB_Ready() { return LEDB_LEDB_LOC_ST; }
 
 /**
  * @brief Update strip
  * @param none
- * @return #LEDB_STATE enum
+ * @return #LED_STATE enum
  */
-LEDB_STATE LEDB_Show() {
-  LEDB_LEDB_LOC_ST = LEDB_BUSY;
+LED_STATE LEDB_Show() {
+  LEDB_LEDB_LOC_ST = LED_BUSY;
   if (LEDB_BUF_COUNTER != 0 || LEDB_DMA_HANDLE.State != HAL_DMA_STATE_READY) {
-    return LEDB_BUSY;
+    return LED_BUSY;
   } else {
     for (volatile u8_t i = 0; i < 8; i++) {
       // set first transfer from first values
@@ -296,7 +296,7 @@ LEDB_STATE LEDB_Show() {
       DMA_Send_Stat = HAL_OK;
     }
     LEDB_BUF_COUNTER = 2;
-    return LEDB_OK;
+    return LED_OK;
   }
 }
 
@@ -382,7 +382,7 @@ static void LEDB_TIM_DMADelayPulseCpltImpl(DMA_HandleTypeDef *hdma, uint32_t cha
 	    __HAL_TIM_DISABLE(htim);
 	    /* Set the TIM channel state */
 	    TIM_CHANNEL_STATE_SET(htim, LEDB_TIM_CH, HAL_TIM_CHANNEL_STATE_READY);
-	    LEDB_LEDB_LOC_ST = LEDB_READY;
+	    LEDB_LEDB_LOC_ST = LED_READY;
 	  }
 	  htim->Channel = HAL_TIM_ACTIVE_CHANNEL_CLEARED;
 }
@@ -434,6 +434,374 @@ static void LEDB_TIM_DMADelayPulseHalfCplt(DMA_HandleTypeDef *hdma) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+extern DMA_HandleTypeDef(LEDM_DMA_HANDLE); ///< DMA handler
+
+volatile u8_t LEDM_PWM_HI; ///< PWM Code HI Log.1 period
+volatile u8_t LEDM_PWM_LO; ///< PWM Code LO Log.1 period
+
+#define LEDM_NUM_BYTES (4 * LEDM_NUM_PIXELS) ///< Strip size in bytes
+
+/// Static LED buffer
+volatile u8_t LEDM_RGB_BUF[LEDM_NUM_BYTES] = {
+    0,
+};
+
+/// Timer PWM value buffer
+volatile dma_siz LEDM_PWM_BUF[PWM_BUF_LEN] = {
+    0,
+};
+/// PWM buffer iterator
+volatile u16_t LEDM_BUF_COUNTER = 0;
+
+volatile LED_STATE LEDM_LEDM_LOC_ST; ///< Buffer send status
+
+// Callbacks
+static void LEDM_TIM_DMADelayPulseCplt(DMA_HandleTypeDef *hdma);
+static void LEDM_TIM_DMADelayPulseHalfCplt(DMA_HandleTypeDef *hdma);
+/// @} //Private
+
+/**
+ * @brief Init timer & prescalers
+ * @param none
+ */
+void LEDM_Init() {
+
+  /* Auto-calculation! */
+  u32_t APBfq; // Clock freq
+  APBfq = HAL_RCC_GetPCLK2Freq();
+  APBfq *= (RCC->CFGR & RCC_CFGR_PPRE2) == 0 ? 1 : 2;
+  APBfq /= (uint32_t)(800 * 1000);                  // 800 KHz - 1.25us
+  TIM_HANDLE.Instance->PSC = 0;                     // dummy hardcode now
+  TIM_HANDLE.Instance->ARR = (uint16_t)(APBfq - 1); // set timer prescaler
+  TIM_HANDLE.Instance->EGR = 1;                     // update timer registers
+  LEDM_PWM_HI = (u8_t)(APBfq * 0.48) - 1;                // Log.1 - 48% - 0.60us
+  LEDM_PWM_LO = (u8_t)(APBfq * 0.24) - 1;                // Log.0 - 24% - 0.30us
+
+  // #if INV_SIGNAL
+  //     TIM_POINTER->CCER |= TIM_CCER_CC2P; // set inv ch bit
+  // #else
+  //     TIM_POINTER->CCER &= ~TIM_CCER_CC2P;
+  // #endif
+  LEDM_LEDM_LOC_ST = LED_READY; // Set Ready Flag
+  TIM_CCxChannelCmd(TIM_HANDLE.Instance, LEDM_TIM_CH,
+                    TIM_CCx_ENABLE); // Enable GPIO to IDLE state
+  HAL_Delay(1);                      // Make some delay
+}
+
+/**
+ * @brief Fill ALL LEDs with (0,0,0)
+ * @param none
+ * @note Update strip after that
+ */
+void LEDM_Clear() {
+  LEDM_FillRGB(0, 0, 0);
+  LEDM_FillWhite(0);
+}
+
+/**
+ * @brief Set LED with RGB color by index
+ * @param[in] i LED position
+ * @param[in] r Red component   [0..255]
+ * @param[in] g Green component [0..255]
+ * @param[in] b Blue component  [0..255]
+ */
+void LEDM_SetRGB(u16_t i, u8_t r, u8_t g, u8_t b) {
+  // overflow protection
+  if (i >= LEDM_NUM_PIXELS) {
+    u16_t _i = i / LEDM_NUM_PIXELS;
+    i -= _i * LEDM_NUM_PIXELS;
+  }
+#if USE_GAMMA_CORRECTION
+  g = scale8(g, 0xB0);
+  b = scale8(b, 0xF0);
+#endif
+  // Subpixel chain order
+  const u8_t subp1 = g;
+  const u8_t subp2 = r;
+  const u8_t subp3 = b;
+  // RGB or RGBW
+  LEDM_RGB_BUF[4 * i] = subp1;     // subpixel 1
+  LEDM_RGB_BUF[4 * i + 1] = subp2; // subpixel 2
+  LEDM_RGB_BUF[4 * i + 2] = subp3; // subpixel 3
+}
+
+/**
+ * @brief Set LED with HSV color by index
+ * @param[in] i LED position
+ * @param[in] hue HUE (color) [0..255]
+ * @param[in] sat Saturation  [0..255]
+ * @param[in] val Value (brightness) [0..255]
+ */
+void LEDM_SetHSV(u16_t i, u8_t hue, u8_t sat, u8_t val) {
+  uint8_t _r, _g, _b;                    // init buffer color
+  HSV2RGB(hue, sat, val, &_r, &_g, &_b); // get RGB color
+  LEDM_SetRGB(i, _r, _g, _b);      // set color
+}
+
+/**
+ * @brief Set White component in strip by index
+ * @param[in] i LED position
+ * @param[in] w White component [0..255]
+ */
+void LEDM_SetWhite(u16_t i, u8_t w) {
+  LEDM_RGB_BUF[4 * i + 3] = w;          // set white part
+}
+
+/**
+ * @brief Fill ALL LEDs with RGB color
+ * @param[in] r Red component   [0..255]
+ * @param[in] g Green component [0..255]
+ * @param[in] b Blue component  [0..255]
+ */
+void LEDM_FillRGB(u8_t r, u8_t g, u8_t b) {
+  for (volatile u16_t i = 0; i < LEDM_NUM_PIXELS; i++)
+    LEDM_SetRGB(i, r, g, b);
+}
+
+/**
+ * @brief Fill ALL LEDs with HSV color
+ * @param[in] hue HUE (color) [0..255]
+ * @param[in] sat Saturation  [0..255]
+ * @param[in] val Value (brightness) [0..255]
+ */
+void LEDM_FillHSV(u8_t hue, u8_t sat, u8_t val) {
+  uint8_t _r, _g, _b;                    // init buffer color
+  HSV2RGB(hue, sat, val, &_r, &_g, &_b); // get color once (!)
+  LEDM_FillRGB(_r, _g, _b);        // set color
+}
+
+/**
+ * @brief Set ALL White components in strip
+ * @param[in] w White component [0..255]
+ */
+void LEDM_FillWhite(u8_t w) {
+  for (volatile u16_t i = 0; i < LEDM_NUM_PIXELS; i++)
+    LEDM_SetWhite(i, w);
+}
+
+/**
+ * @brief Get current DMA status
+ * @param none
+ * @return #LED_STATE enum
+ */
+LED_STATE LEDM_Ready() { return LEDM_LEDM_LOC_ST; }
+
+/**
+ * @brief Update strip
+ * @param none
+ * @return #LED_STATE enum
+ */
+LED_STATE LEDM_Show() {
+  LEDM_LEDM_LOC_ST = LED_BUSY;
+  if (LEDM_BUF_COUNTER != 0 || LEDM_DMA_HANDLE.State != HAL_DMA_STATE_READY) {
+    return LED_BUSY;
+  } else {
+    for (volatile u8_t i = 0; i < 8; i++) {
+      // set first transfer from first values
+      LEDM_PWM_BUF[i] = (((LEDM_RGB_BUF[0] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+      LEDM_PWM_BUF[i + 8] = (((LEDM_RGB_BUF[1] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+      LEDM_PWM_BUF[i + 16] = (((LEDM_RGB_BUF[2] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+      LEDM_PWM_BUF[i + 24] = (((LEDM_RGB_BUF[3] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+      LEDM_PWM_BUF[i + 32] = (((LEDM_RGB_BUF[4] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+      LEDM_PWM_BUF[i + 40] = (((LEDM_RGB_BUF[5] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+#ifdef SK6812
+      LEDM_PWM_BUF[i + 48] = (((LEDM_RGB_BUF[6] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+      LEDM_PWM_BUF[i + 56] = (((LEDM_RGB_BUF[7] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+#endif
+    }
+    HAL_StatusTypeDef DMA_Send_Stat = HAL_ERROR;
+    while (DMA_Send_Stat != HAL_OK) {
+      if (TIM_CHANNEL_STATE_GET(&TIM_HANDLE, LEDM_TIM_CH) ==
+          HAL_TIM_CHANNEL_STATE_BUSY) {
+        DMA_Send_Stat = HAL_BUSY;
+        continue;
+      } else if (TIM_CHANNEL_STATE_GET(&TIM_HANDLE, LEDM_TIM_CH) ==
+                 HAL_TIM_CHANNEL_STATE_READY) {
+        TIM_CHANNEL_STATE_SET(&TIM_HANDLE, LEDM_TIM_CH, HAL_TIM_CHANNEL_STATE_BUSY);
+      } else {
+        DMA_Send_Stat = HAL_ERROR;
+        continue;
+      }
+#if LEDM_TIM_CH == TIM_CHANNEL_1
+#define LEDM_TIM_DMA_ID TIM_DMA_ID_CC1
+#define LEDM_TIM_DMA_CC TIM_DMA_CC1
+#define LEDM_TIM_CCR CCR1
+#elif LEDM_TIM_CH == TIM_CHANNEL_2
+#define LEDM_TIM_DMA_ID TIM_DMA_ID_CC2
+#define LEDM_TIM_DMA_CC TIM_DMA_CC2
+#define LEDM_TIM_CCR CCR2
+#elif LEDM_TIM_CH == TIM_CHANNEL_3
+#define LEDM_TIM_DMA_ID TIM_DMA_ID_CC3
+#define LEDM_TIM_DMA_CC TIM_DMA_CC3
+#define LEDM_TIM_CCR CCR3
+#elif LEDM_TIM_CH == TIM_CHANNEL_4
+#define LEDM_TIM_DMA_ID TIM_DMA_ID_CC4
+#define LEDM_TIM_DMA_CC TIM_DMA_CC4
+#define LEDM_TIM_CCR CCR4
+#endif
+      TIM_HANDLE.hdma[LEDM_TIM_DMA_ID]->XferCpltCallback =
+          LEDM_TIM_DMADelayPulseCplt;
+      TIM_HANDLE.hdma[LEDM_TIM_DMA_ID]->XferHalfCpltCallback =
+          LEDM_TIM_DMADelayPulseHalfCplt;
+      TIM_HANDLE.hdma[LEDM_TIM_DMA_ID]->XferErrorCallback = TIM_DMAError;
+      if (HAL_DMA_Start_IT(TIM_HANDLE.hdma[LEDM_TIM_DMA_ID], (u32_t)LEDM_PWM_BUF,
+                           (u32_t)&TIM_HANDLE.Instance->LEDM_TIM_CCR,
+                           (u16_t)PWM_BUF_LEN) != HAL_OK) {
+        DMA_Send_Stat = HAL_ERROR;
+        continue;
+      }
+      __HAL_TIM_ENABLE_DMA(&TIM_HANDLE, LEDM_TIM_DMA_CC);
+      if (IS_TIM_BREAK_INSTANCE(TIM_HANDLE.Instance) != RESET)
+        __HAL_TIM_MOE_ENABLE(&TIM_HANDLE);
+      if (IS_TIM_SLAVE_INSTANCE(TIM_HANDLE.Instance)) {
+        u32_t tmpsmcr = TIM_HANDLE.Instance->SMCR & TIM_SMCR_SMS;
+        if (!IS_TIM_SLAVEMODE_TRIGGER_ENABLED(tmpsmcr))
+          __HAL_TIM_ENABLE(&TIM_HANDLE);
+      } else
+        __HAL_TIM_ENABLE(&TIM_HANDLE);
+      DMA_Send_Stat = HAL_OK;
+    }
+    LEDM_BUF_COUNTER = 2;
+    return LED_OK;
+  }
+}
+
+/**
+ * @addtogroup Private_entities
+ * @{ */
+
+
+static void LEDM_TIM_DMADelayPulseCpltImpl(DMA_HandleTypeDef *hdma, uint32_t channel)
+{
+	  TIM_HandleTypeDef *htim =
+	      (TIM_HandleTypeDef *)((DMA_HandleTypeDef *)hdma)->Parent;
+	  // if wrong handlers
+	  if (hdma != &LEDM_DMA_HANDLE || htim != &TIM_HANDLE)
+	    return;
+	  if (LEDM_BUF_COUNTER == 0)
+	    return; // if no data to transmit - return
+	  if (hdma == htim->hdma[TIM_DMA_ID_CC1]) {
+	    htim->Channel = HAL_TIM_ACTIVE_CHANNEL_1;
+	    if (hdma->Init.Mode == DMA_NORMAL) {
+	      TIM_CHANNEL_STATE_SET(htim, TIM_CHANNEL_1, HAL_TIM_CHANNEL_STATE_READY);
+	    }
+	  } else if (hdma == htim->hdma[TIM_DMA_ID_CC2]) {
+	    htim->Channel = HAL_TIM_ACTIVE_CHANNEL_2;
+	    if (hdma->Init.Mode == DMA_NORMAL) {
+	      TIM_CHANNEL_STATE_SET(htim, TIM_CHANNEL_2, HAL_TIM_CHANNEL_STATE_READY);
+	    }
+	  } else if (hdma == htim->hdma[TIM_DMA_ID_CC3]) {
+	    htim->Channel = HAL_TIM_ACTIVE_CHANNEL_3;
+	    if (hdma->Init.Mode == DMA_NORMAL) {
+	      TIM_CHANNEL_STATE_SET(htim, TIM_CHANNEL_3, HAL_TIM_CHANNEL_STATE_READY);
+	    }
+	  } else if (hdma == htim->hdma[TIM_DMA_ID_CC4]) {
+	    htim->Channel = HAL_TIM_ACTIVE_CHANNEL_4;
+	    if (hdma->Init.Mode == DMA_NORMAL) {
+	      TIM_CHANNEL_STATE_SET(htim, TIM_CHANNEL_4, HAL_TIM_CHANNEL_STATE_READY);
+	    }
+	  } else {
+	    /* nothing to do */
+	  }
+	  // if data transfer
+	  if (LEDM_BUF_COUNTER < LEDM_NUM_PIXELS) {
+	    // fill second part of buffer
+	    for (volatile u8_t i = 0; i < 8; i++) {
+	      LEDM_PWM_BUF[i + 32] =
+	          (((LEDM_RGB_BUF[4 * LEDM_BUF_COUNTER] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+	      LEDM_PWM_BUF[i + 40] =
+	          (((LEDM_RGB_BUF[4 * LEDM_BUF_COUNTER + 1] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+	      LEDM_PWM_BUF[i + 48] =
+	          (((LEDM_RGB_BUF[4 * LEDM_BUF_COUNTER + 2] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+	      LEDM_PWM_BUF[i + 56] =
+	          (((LEDM_RGB_BUF[4 * LEDM_BUF_COUNTER + 3] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+	    }
+	    LEDM_BUF_COUNTER++;
+	  } else if (LEDM_BUF_COUNTER < LEDM_NUM_PIXELS + 2) { // if RET transfer
+	    memset((dma_siz *)&LEDM_PWM_BUF[PWM_BUF_LEN / 2], 0,
+	           (PWM_BUF_LEN / 2) * sizeof(dma_siz)); // second part
+	    LEDM_BUF_COUNTER++;
+	  } else { // if END of transfer
+	    LEDM_BUF_COUNTER = 0;
+	    // STOP DMA:
+	#if LEDM_TIM_CH == TIM_CHANNEL_1
+	    __HAL_TIM_DISABLE_DMA(htim, TIM_DMA_CC1);
+	    (void)HAL_DMA_Abort_IT(htim->hdma[TIM_DMA_ID_CC1]);
+	#endif
+	#if LEDM_TIM_CH == TIM_CHANNEL_2
+	    __HAL_TIM_DISABLE_DMA(htim, TIM_DMA_CC2);
+	    (void)HAL_DMA_Abort_IT(htim->hdma[TIM_DMA_ID_CC2]);
+	#endif
+	#if LEDM_TIM_CH == TIM_CHANNEL_3
+	    __HAL_TIM_DISABLE_DMA(htim, TIM_DMA_CC3);
+	    (void)HAL_DMA_Abort_IT(htim->hdma[TIM_DMA_ID_CC3]);
+	#endif
+	#if LEDM_TIM_CH == TIM_CHANNEL_4
+	    __HAL_TIM_DISABLE_DMA(htim, TIM_DMA_CC4);
+	    (void)HAL_DMA_Abort_IT(htim->hdma[TIM_DMA_ID_CC4]);
+	#endif
+	    if (IS_TIM_BREAK_INSTANCE(htim->Instance) != RESET) {
+	      /* Disable the Main Output */
+	      __HAL_TIM_MOE_DISABLE(htim);
+	    }
+	    /* Disable the Peripheral */
+	    __HAL_TIM_DISABLE(htim);
+	    /* Set the TIM channel state */
+	    TIM_CHANNEL_STATE_SET(htim, LEDM_TIM_CH, HAL_TIM_CHANNEL_STATE_READY);
+	    LEDM_LEDM_LOC_ST = LED_READY;
+	  }
+	  htim->Channel = HAL_TIM_ACTIVE_CHANNEL_CLEARED;
+}
+
+/**
+ * @brief  TIM DMA Delay Pulse complete callback.
+ * @param  hdma pointer to DMA handle.
+ * @retval None
+ */
+static void LEDM_TIM_DMADelayPulseCplt(DMA_HandleTypeDef *hdma) {
+	LEDM_TIM_DMADelayPulseCpltImpl(hdma, LEDM_TIM_CH);
+}
+
+/**
+ * @brief  TIM DMA Delay Pulse half complete callback.
+ * @param  hdma pointer to DMA handle.
+ * @retval None
+ */
+static void LEDM_TIM_DMADelayPulseHalfCplt(DMA_HandleTypeDef *hdma) {
+  TIM_HandleTypeDef *htim =
+      (TIM_HandleTypeDef *)((DMA_HandleTypeDef *)hdma)->Parent;
+  // if wrong handlers
+  if (hdma != &LEDM_DMA_HANDLE || htim != &TIM_HANDLE)
+    return;
+  if (LEDM_BUF_COUNTER == 0)
+    return; // if no data to transmit - return
+  // if data transfer
+  if (LEDM_BUF_COUNTER < LEDM_NUM_PIXELS) {
+    // fill first part of buffer
+    for (volatile u8_t i = 0; i < 8; i++) {
+      LEDM_PWM_BUF[i] =
+          (((LEDM_RGB_BUF[4 * LEDM_BUF_COUNTER] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+      LEDM_PWM_BUF[i + 8] =
+          (((LEDM_RGB_BUF[4 * LEDM_BUF_COUNTER + 1] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+      LEDM_PWM_BUF[i + 16] =
+          (((LEDM_RGB_BUF[4 * LEDM_BUF_COUNTER + 2] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+      LEDM_PWM_BUF[i + 24] =
+          (((LEDM_RGB_BUF[4 * LEDM_BUF_COUNTER + 3] << i) & 0x80) > 0) ? LEDM_PWM_HI : LEDM_PWM_LO;
+    }
+    LEDM_BUF_COUNTER++;
+  } else if (LEDM_BUF_COUNTER < LEDM_NUM_PIXELS + 2) { // if RET transfer
+    memset((dma_siz *)&LEDM_PWM_BUF[0], 0,
+           (PWM_BUF_LEN / 2) * sizeof(dma_siz)); // first part
+    LEDM_BUF_COUNTER++;
+  }
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 /**
  * @brief Private method for gamma correction
