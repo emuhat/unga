@@ -95,11 +95,15 @@ void update(struct FooBar *fb) {
 }
 
 void draw(int x, struct FooBar *fb) {
-  if (fb->rgb == 3)
-    LEDB_SetWhite(x, fb->x);
-  else
-    LEDB_SetRGB(x, fb->rgb == 0 ? fb->x : 0,
-                fb->rgb == 1 ? fb->x : 0, fb->rgb == 2 ? fb->x : 0);
+  if (fb->rgb == 3) {
+	  if (x < LEDB_NUM_PIXELS) LEDB_SetWhite(x, fb->x);
+    LEDM_SetWhite(x, fb->x);
+  } else {
+	  if (x < LEDB_NUM_PIXELS) LEDB_SetRGB(x, fb->rgb == 0 ? fb->x : 0, fb->rgb == 1 ? fb->x : 0,
+                fb->rgb == 2 ? fb->x : 0);
+    LEDM_SetRGB(x, fb->rgb == 0 ? fb->x : 0, fb->rgb == 1 ? fb->x : 0,
+                fb->rgb == 2 ? fb->x : 0);
+  }
 }
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart,
@@ -160,15 +164,19 @@ int main(void) {
 
   HAL_Delay(500); // not sure about this...
   LEDB_Init();
-  HAL_Delay(500);        // not sure about this...
-                         //
-                         //  uint32_t the_clock = HAL_RCC_GetSysClockFreq();
-                         //
-                         //
-  LEDB_Clear(); // Clear stirp
+  LEDM_Init();
+  HAL_Delay(500); // not sure about this...
+                  //
+                  //  uint32_t the_clock = HAL_RCC_GetSysClockFreq();
+                  //
+                  //
+  LEDB_Clear();   // Clear stirp
   while (!LEDB_Show())
     ;
 
+  LEDM_Clear(); // Clear stirp
+  while (!LEDM_Show())
+    ;
 
   HAL_Delay(500); // not sure about this..
 
@@ -195,6 +203,7 @@ int main(void) {
   struct FooBar yeah0 = {0, 0};
   struct FooBar yeah1 = {128, 1};
   struct FooBar yeah2 = {200, 2};
+  struct FooBar yeah3 = {64, 3};
 
   //  uint8_t buffer[4];
   //  buffer[0] = 'A';
@@ -242,14 +251,24 @@ int main(void) {
     update(&yeah0);
     update(&yeah1);
     update(&yeah2);
+    update(&yeah3);
 
     LEDB_Clear();
+    LEDM_Clear();
+
     if (actually_light_stuff_up) {
       draw(0, &yeah0);
       draw(1, &yeah1);
       draw(2, &yeah2);
+      draw(3, &yeah3);
+      draw(4, &yeah3);
+      draw(5, &yeah3);
+      draw(6, &yeah3);
+      draw(7, &yeah3);
     }
     while (!LEDB_Show())
+      ;
+    while (!LEDM_Show())
       ;
 
     //	  	if(rgb == 3)

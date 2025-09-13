@@ -28,23 +28,20 @@
  * @{
  */
 
-
 #define SK6812
 #define USE_GAMMA_CORRECTION 1
-#define TIM_NUM 2 ///< Timer number
+#define TIM_NUM 2     ///< Timer number
 #define DMA_SIZE_WORD ///< DMA Memory Data Width: {.._BYTE, .._HWORD, .._WORD}
 
-
-
 // LED_BATT settings
- #define LEDB_TIM_CH TIM_CHANNEL_1     ///< Timer's PWM channel
- #define LEDB_DMA_HANDLE hdma_tim2_ch1 ///< DMA Channel
- #define LEDB_NUM_PIXELS 3 ///< Pixel quantity
+#define LEDB_TIM_CH TIM_CHANNEL_1     ///< Timer's PWM channel
+#define LEDB_DMA_HANDLE hdma_tim2_ch1 ///< DMA Channel
+#define LEDB_NUM_PIXELS 3             ///< Pixel quantity
 
 // LED_MAIN settings
 #define LEDM_TIM_CH TIM_CHANNEL_2         ///< Timer's PWM channel
 #define LEDM_DMA_HANDLE hdma_tim2_ch2_ch4 ///< DMA Channel
-#define LEDM_NUM_PIXELS 3 ///< Pixel quantity
+#define LEDM_NUM_PIXELS 8                 ///< Pixel quantity
 
 /**
  * @addtogroup Global_entities
@@ -82,7 +79,6 @@ void LEDB_FillWhite(u8_t w); // Fill all strip's white component (RGBW)
 
 LED_STATE LEDB_Ready(); // Get DMA Ready state
 LED_STATE LEDB_Show();  // Push data to the strip
-
 
 // LEDM functions
 
