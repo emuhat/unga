@@ -25,6 +25,7 @@
 #include "ARGB.h"
 #include "nsp.h"
 #include "radar.h"
+#include "sh1106.h"
 #include "vcnl4040.h"
 /* USER CODE END Includes */
 
@@ -208,6 +209,8 @@ int main(void) {
 
   VCNL4040_Init();
 
+  SH1106_Init();
+
   radar_init(&radar_data, &nsp_data, &huart2);
 
   //  LEDB_FillRGB(0, 128, 0);
@@ -231,13 +234,46 @@ int main(void) {
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   uint32_t last_ping_tick = HAL_GetTick();
+  uint32_t last_oled_tick = HAL_GetTick();
+
+  int ball_x = 0;
+
   while (1) {
     delay = 5;
     HAL_Delay(delay);
 
+
+//    //	  int y = x / scr_period;
+//    SH1106_Contrast(yeah0.x);
+//    SH1106_Fill(0);
+
+
+
+
+
+
+
+    uint32_t cur_tick = HAL_GetTick();
+
+
+
+    if (cur_tick - last_oled_tick > 50) {
+
+
+    	if (ball_x > 100) ball_x = 0;
+    	ball_x += 2;
+
+    	SH1106_Fill(0);
+		LCD_Circle(ball_x, 50, 10);
+		SH1106_Flush();
+
+
+		last_oled_tick = cur_tick;
+    }
+
+
     // Ping every second
-    uint32_t cur_ping_tick = HAL_GetTick();
-    if (cur_ping_tick - last_ping_tick > 1000) {
+    if (cur_tick - last_ping_tick > 1000) {
       //		  nsp_send_ping_packet(&nsp_data);
 
       //		  nsp_print(&nsp_data, "abcd %d", counter++);
@@ -249,6 +285,8 @@ int main(void) {
 
       nsp_print(&nsp_data, "LT = %4d, PT = %4d", lt, pt);
 
+
+
       //      if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_SET) {
       //        // pin is high
       //        nsp_print(&nsp_data, "High");
@@ -257,7 +295,7 @@ int main(void) {
       //        nsp_print(&nsp_data, "Low");
       //      }
 
-      last_ping_tick = cur_ping_tick;
+      last_ping_tick = cur_tick;
     }
 
     //	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
@@ -413,11 +451,11 @@ static void MX_SPI2_Init(void) {
   hspi2.Instance = SPI2;
   hspi2.Init.Mode = SPI_MODE_MASTER;
   hspi2.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi2.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;

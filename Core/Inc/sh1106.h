@@ -18,7 +18,7 @@
 // Pixel set function definition
 //   0 - call pixel function (less code size in cost of speed)
 //   1 - inline pixel function (higher speed in cost of code size)
-#define SH1106_OPT_PIXEL 1
+#define SH1106_OPT_PIXEL 0
 
 // DMA usage
 //   0 - DMA is not used
