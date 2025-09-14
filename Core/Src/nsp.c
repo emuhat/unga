@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
+extern int actually_light_stuff_up; // HACK HACK HACK
+
 extern UART_HandleTypeDef huart1;
 
 const uint8_t PING_TYPE = 0;
@@ -118,7 +120,7 @@ void nsp_dispatch(struct NSPData *nsp) {
   int command = sr->buffer[safe_cmd_offset];
 
   if (command == TOGGLE_LIGHT_TYPE) {
-    // actually_light_stuff_up = !actually_light_stuff_up;
+    actually_light_stuff_up = !actually_light_stuff_up;
   }
 }
 
