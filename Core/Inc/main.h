@@ -73,6 +73,12 @@ void Error_Handler(void);
 #define SENC_B_EXTI_IRQn EXTI1_IRQn
 #define SENC_SW_Pin GPIO_PIN_2
 #define SENC_SW_GPIO_Port GPIOB
+#define PI_TX_Pin GPIO_PIN_9
+#define PI_TX_GPIO_Port GPIOA
+#define PI_RX_Pin GPIO_PIN_10
+#define PI_RX_GPIO_Port GPIOA
+#define PI_PWR_Pin GPIO_PIN_11
+#define PI_PWR_GPIO_Port GPIOA
 #define LED_BATT_TIMER_Pin GPIO_PIN_15
 #define LED_BATT_TIMER_GPIO_Port GPIOA
 #define LED_MAIN_TIMER_Pin GPIO_PIN_3
