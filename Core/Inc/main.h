@@ -77,6 +77,10 @@ void Error_Handler(void);
 #define LED_BATT_TIMER_GPIO_Port GPIOA
 #define LED_MAIN_TIMER_Pin GPIO_PIN_3
 #define LED_MAIN_TIMER_GPIO_Port GPIOB
+#define VCNL_SCL_Pin GPIO_PIN_6
+#define VCNL_SCL_GPIO_Port GPIOB
+#define VCNL_SDA_Pin GPIO_PIN_7
+#define VCNL_SDA_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

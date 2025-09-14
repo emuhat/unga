@@ -40,7 +40,7 @@ extern "C" {
 /*#define HAL_CRYP_MODULE_ENABLED   */
 /*#define HAL_CAN_MODULE_ENABLED   */
 /*#define HAL_COMP_MODULE_ENABLED   */
-/*#define HAL_I2C_MODULE_ENABLED   */
+#define HAL_I2C_MODULE_ENABLED
 /*#define HAL_CRC_MODULE_ENABLED   */
 /*#define HAL_CRYP_MODULE_ENABLED   */
 /*#define HAL_DAC_MODULE_ENABLED   */
@@ -139,7 +139,7 @@ extern "C" {
 #if !defined(HSI48_VALUE)
 #define HSI48_VALUE                                                            \
   ((uint32_t)48000000U) /*!< Value of the Internal High Speed oscillator for   \
-                         USB FS/SDMMC/RNG in Hz. The real value my vary        \
+                         USB FS/SDMMC/RNG in Hz. The real value my vary                                                        \
                          depending on manufacturing process variations.*/
 #endif                  /* HSI48_VALUE */
 
