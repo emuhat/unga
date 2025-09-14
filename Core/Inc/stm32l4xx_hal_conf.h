@@ -74,7 +74,7 @@ extern "C" {
 /*#define HAL_SD_MODULE_ENABLED   */
 /*#define HAL_SMBUS_MODULE_ENABLED   */
 /*#define HAL_SMARTCARD_MODULE_ENABLED   */
-/*#define HAL_SPI_MODULE_ENABLED   */
+#define HAL_SPI_MODULE_ENABLED
 /*#define HAL_SRAM_MODULE_ENABLED   */
 /*#define HAL_SWPMI_MODULE_ENABLED   */
 #define HAL_TIM_MODULE_ENABLED
@@ -139,7 +139,7 @@ extern "C" {
 #if !defined(HSI48_VALUE)
 #define HSI48_VALUE                                                            \
   ((uint32_t)48000000U) /*!< Value of the Internal High Speed oscillator for   \
-                         USB FS/SDMMC/RNG in Hz. The real value my vary        \
+                         USB FS/SDMMC/RNG in Hz. The real value my vary                                                        \
                          depending on manufacturing process variations.*/
 #endif                  /* HSI48_VALUE */
 
