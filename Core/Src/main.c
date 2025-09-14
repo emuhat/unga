@@ -25,6 +25,7 @@
 #include "ARGB.h"
 #include "nsp.h"
 #include "radar.h"
+#include "vcnl4040.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -201,6 +202,8 @@ int main(void) {
 
   nsp_init(&nsp_data, &huart1);
 
+  VCNL4040_Init();
+
   radar_init(&radar_data, &nsp_data, &huart2);
 
   //  LEDB_FillRGB(0, 128, 0);
@@ -237,13 +240,18 @@ int main(void) {
 
       nsp_send_ping_packet(&nsp_data);
 
-      if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_SET) {
-        // pin is high
-        nsp_print(&nsp_data, "High");
-      } else {
-        // pin is low
-        nsp_print(&nsp_data, "Low");
-      }
+      int lt = VCNL4040_DoLightTest();
+      int pt = VCNL4040_DoProxTest();
+
+      nsp_print(&nsp_data, "LT = %4d, PT = %4d", lt, pt);
+
+      //      if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_SET) {
+      //        // pin is high
+      //        nsp_print(&nsp_data, "High");
+      //      } else {
+      //        // pin is low
+      //        nsp_print(&nsp_data, "Low");
+      //      }
 
       last_ping_tick = cur_ping_tick;
     }
